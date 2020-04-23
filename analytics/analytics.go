@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -10,6 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 )
 
 type EventHandler struct {
@@ -79,7 +82,13 @@ func (a *EventHandler) SnowplowHandler(c *gin.Context) {
 	if err := c.ShouldBindJSON(rec); err == nil {
 		log.Infof("Processing: %+v", rec)
 
-		err = a.handleRecords(rec)
+		err = a.writeRecords(rec)
+
+		if nil != err {
+			log.Warnf("Oops: %s", err)
+		}
+
+		err = a.updateStats(rec)
 
 		if nil != err {
 			log.Warnf("Oops: %s", err)
@@ -91,8 +100,51 @@ func (a *EventHandler) SnowplowHandler(c *gin.Context) {
 	c.Data(200, "text/plain", []byte("ok"))
 }
 
-// handleRecords writes into event table
-func (a *EventHandler) handleRecords(eventArray *EventsRecord) error {
+const slotFormat = "200601021504"
+
+func (a *EventHandler) updateStats(eventArray *EventsRecord) error {
+	ttlAt := fmt.Sprintf("%d", time.Now().Add(360*24*time.Hour).Unix())
+
+	for _, r := range eventArray.Data {
+		attrMap, _ := r.AsWriteRequest()
+
+		ttm, _ := strconv.ParseInt(*attrMap.PutRequest.Item["ttm"].N, 10, 64)
+
+		baseTime := time.Unix(ttm, 0).Format(slotFormat)
+
+		date := baseTime[0:8]
+
+		time := baseTime[8:]
+
+		datepath := fmt.Sprintf("%s:%s", date, *attrMap.PutRequest.Item["request_uri"].S)
+
+		_, err := a.ddbClient.UpdateItem(&dynamodb.UpdateItemInput{
+			TableName: aws.String("summary"),
+			Key: map[string]*dynamodb.AttributeValue{
+				"domain_md5": attrMap.PutRequest.Item["domain_md5"],
+				"datepath":   {S: aws.String(datepath)},
+			},
+			UpdateExpression: aws.String("SET #ttl = :ttl ADD #item :value"),
+			ExpressionAttributeNames: map[string]*string{
+				"#item": aws.String(time),
+				"#ttl":  aws.String("ttl"),
+			},
+			ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+				":value": {N: aws.String("1")},
+				":ttl":   {N: aws.String(ttlAt)},
+			},
+		})
+
+		if nil != err {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// writeRecords writes into event table
+func (a *EventHandler) writeRecords(eventArray *EventsRecord) error {
 	var writeRequests []*dynamodb.WriteRequest
 
 	for _, v := range eventArray.Data {
