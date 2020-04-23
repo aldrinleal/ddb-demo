@@ -1,4 +1,16 @@
 
+# Tables
+
+ * events
+    * eid
+    * indexes:
+        * ttm
+        * domain_md5 / ttm
+
+ * summary:
+    * domain_md5
+    * datepath
+
 
 # Sample
 
