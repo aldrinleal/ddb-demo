@@ -1,0 +1,5 @@
+.now
+.env
+.envrc
+.idea
+go.sum

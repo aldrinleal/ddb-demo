@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "public": false,
+  "env": {
+    "NOW_AWS_ACCESS_KEY_ID": "@aws_access_key_id",
+    "NOW_AWS_SECRET_ACCESS_KEY": "@aws_secret_access_key"
+  },
+  "builds": [
+    {
+      "src": "/public/**",
+      "use": "@now/static"
+    },
+    {
+      "src": "api/index.go",
+      "use": "@now/go"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/public/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    },
+    {
+      "src": "/api(/?)",
+      "dest": "api/index.go"
+    },
+    {
+      "src": "/api/.*",
+      "dest": "api/index.go"
+    },
+    {
+      "src": "/api/tp2",
+      "dest": "api/index.go",
+      "methods": ["GET","POST","OPTIONS"]
+    }
+  ]
+}
