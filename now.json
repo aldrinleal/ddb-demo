@@ -21,21 +21,27 @@
       "dest": "/public/index.html"
     },
     {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    },
-    {
-      "src": "/api(/?)",
-      "dest": "api/index.go"
+      "src": "/api",
+      "dest": "/api/index.go"
     },
     {
       "src": "/api/.*",
-      "dest": "api/index.go"
+      "headers": {
+        "Access-Control-Allow-Origin": "https://cdpn.io",
+        "Access-Control-Allow-Headers": "Access-Control-Allow-Origin,Origin,Content-Length,Content-Type",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET,POST",
+        "Access-Control-Allow-Max-Age": "43200"
+      },
+      "continue": true
     },
     {
-      "src": "/api/tp2",
-      "dest": "api/index.go",
-      "methods": ["GET","POST","OPTIONS"]
+      "src": "/api/(.*)",
+      "dest": "/api/index.go"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
     }
   ]
 }

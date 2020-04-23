@@ -39,21 +39,19 @@ func (a *EventHandler) GetEngine() *gin.Engine {
 	router := gin.Default()
 
 	/*
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowCredentials = true
-	corsConfig.AllowOrigins = []string{"https://cdpn.io"}
+		corsConfig := cors.DefaultConfig()
+		corsConfig.AllowCredentials = true
+		corsConfig.AllowOrigins = []string{"https://cdpn.io"}
 
-	corsMiddleware := cors.New(corsConfig)
+		corsMiddleware := cors.New(corsConfig)
 
-	router.Use(corsMiddleware)
-	 */
+		router.Use(corsMiddleware)
+	*/
 
 	apiRoot := router.Group(a.prefix)
 
 	apiRoot.GET("/", a.RootHandler)
-	apiRoot.GET("/tp2", a.SnowplowHandler)
-	apiRoot.POST("/tp2", a.SnowplowHandler)
-	apiRoot.OPTIONS("/tp2", a.PreflightHandler)
+	apiRoot.Any("/tp2", a.SnowplowHandler)
 
 	return router
 }
@@ -70,6 +68,12 @@ func (a *EventHandler) SnowplowHandler(c *gin.Context) {
 		c.SetCookie("sp", uuid.New().String(), 86400*365*2, "/", "", false, false)
 	}
 
+	if c.Request.Method == "OPTIONS" {
+		a.PreflightHandler(c)
+
+		return
+	}
+
 	rec := &EventsRecord{}
 
 	if err := c.ShouldBindJSON(rec); err == nil {
@@ -83,8 +87,6 @@ func (a *EventHandler) SnowplowHandler(c *gin.Context) {
 	} else {
 		log.Warnf("Oops: %s", err)
 	}
-
-	a.SetHeaders(c)
 
 	c.Data(200, "text/plain", []byte("ok"))
 }
@@ -116,20 +118,25 @@ func (a *EventHandler) handleRecords(eventArray *EventsRecord) error {
 func (a *EventHandler) PreflightHandler(c *gin.Context) {
 	a.SetHeaders(c)
 
-	c.String(204, "text/plain", []byte{})
+	c.String(200, "%s", "text/plain")
 }
 
 func (a *EventHandler) SetHeaders(c *gin.Context) {
+	origin := "https://cdpn.io"
+
+	if originHeaderValue := c.GetHeader("origin"); originHeaderValue != "" {
+		origin = originHeaderValue
+	}
+
 	headers := map[string]string{
-		"Access-Control-Allow-Origin":      "https://cdpn.io",
-		"Access-Control-Allow-Headers":     "Origin, Content-Length, Content-Type",
+		"Access-Control-Allow-Origin":      origin,
+		"Access-Control-Allow-Headers":     "Access-Control-Allow-Origin,Origin,Content-Length,Content-Type",
 		"Access-Control-Allow-Credentials": "true",
-		"Access-Control-Allow-Methods":     "GET,POST,OPTIONS",
+		"Access-Control-Allow-Methods":     "GET,POST",
 		"Access-Control-Allow-Max-Age":     "43200",
 	}
 
 	for k, v := range headers {
 		c.Header(k, v)
 	}
-
 }
